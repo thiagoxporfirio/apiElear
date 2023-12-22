@@ -11,9 +11,9 @@ A autenticação com a API é realizada usando o OAuth 2.0. Um token de acesso �
 - Biblioteca Axios
 
 ## Configuração
-1. Instale as dependências usando `npm install`.
+1. Instale as dependências usando `yarn`.
 2. Configure as variáveis de ambiente necessárias, como `Access_Token`, `Refresh_Token`, `client_id`, e `client_secret`.
-3. Execute o script usando `node seu_script.js`.
+3. Execute o script usando `yarn start`.
 
 ## Funcionalidades
 O script faz requisições a dois servidores diferentes, utilizando dados obtidos na resposta do primeiro servidor para realizar uma requisição ao segundo. Cada requisição inclui cabeçalhos específicos, como 'Authorization', 'X-Api-Version', e 'Content-Type'.
