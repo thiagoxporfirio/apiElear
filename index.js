@@ -75,7 +75,8 @@ async function FormatarDados(detalhesCliente) {
       SendToDriver: true,
       Customer: {
         DocumentType: ultimoPedidoArmazenado.cpf ? "CPF" : "CNPJ",
-        DocumentNumber: ultimoPedidoArmazenado.cpf || ultimoPedidoArmazenado.cnpj,
+        DocumentNumber:
+          ultimoPedidoArmazenado.cpf || ultimoPedidoArmazenado.cnpj,
       },
       OrderType: 1,
       OrderID: `ID${ultimoPedidoArmazenado.ultimoPedido.id}`,
@@ -114,7 +115,8 @@ async function FormatarDados(detalhesCliente) {
         PhoneNumber: ultimoPedidoArmazenado.telefone,
         Email: ultimoPedidoArmazenado.telefone,
         DocumentType: ultimoPedidoArmazenado.cpf ? "CPF" : "CNPJ",
-        DocumentNumber: ultimoPedidoArmazenado.cpf || ultimoPedidoArmazenado.cnpj,
+        DocumentNumber:
+          ultimoPedidoArmazenado.cpf || ultimoPedidoArmazenado.cnpj,
         PhoneCountrySms: "+55",
         PhoneNumberSms: ultimoPedidoArmazenado.telefone,
       },
@@ -150,9 +152,31 @@ async function FormatarDados(detalhesCliente) {
     };
 
     // Enviar os dados formatados
-    console.log("Enviando dados formatados:", dadosFormatados);
+    console.log("Enviando dados formatados para a funcao: ");
+    await postTudoEntrege(dadosFormatados);
   } catch (error) {
     console.error("Erro ao enviar dados formatados:", error.message);
+  }
+}
+
+async function postTudoEntrege(dadosFormatados) {
+  try {
+    const requesterKey = "SUA_CHAVE_AQUI";
+    const response = await axios.post(
+      "https://api.tudoentregue.com.br/v1/orders",
+      dadosFormatados,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "RequesterKey": requesterKey,
+        },
+      }
+    );
+
+    console.log("Resposta da API TudoEntregue:", response.data);
+  } catch (error) {
+    console.error("Erro ao enviar dados para TudoEntregue:", error.message);
+    throw error;
   }
 }
 
@@ -209,7 +233,6 @@ async function fazerRequisicoes() {
         ultimoPedidoArmazenado = detalhesCliente;
 
         await FormatarDados(detalhesCliente);
-        
       } else {
         console.log(
           "Retorna o ultimo item, se for o mesmo: ",
