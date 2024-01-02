@@ -32,3 +32,7 @@ Antes de executar a aplicação, certifique-se de configurar corretamente as seg
 1. Instale as dependências usando o comando:
    ```bash
    yarn
+
+2. Execute a aplicação com o comando:
+   ```bash
+   yarn start || yarn dev
