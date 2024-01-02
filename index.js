@@ -1,13 +1,41 @@
 const axios = require("axios");
 const cron = require("node-cron");
 
-let access_token = "K96hroxEgXQAUcH0WF5FTLQQrMqWCy79";
-let refresh_token = "66qnHmzVi2PcFonmS0D6WYMtqfswqKkJ";
+let access_token = "r9ghTf24zs4l8zZOC4pDaEbQERMym0hR";
+let refresh_token = "6W97FMvwF54seBU85U7D3JoXPoQ5sslc";
 let ultimoPedidoArmazenado = null;
 let tokenExpiryTime = null;
 
 const client_id = "2nkynyo1lXuHUN9pLZqiqvGS0XTONlCn";
 const client_secret = "a8bjnGVvDnM0RK8UJIEHKsg7n3A9AbHp";
+
+function obterDataFormatada() {
+  const agora = new Date();
+
+  const ano = agora.getFullYear();
+  const mes = (agora.getMonth() + 1).toString().padStart(2, "0");
+  const dia = agora.getDate().toString().padStart(2, "0");
+
+  const dataFormatada = `${ano}-${mes}-${dia}T18:59:59`;
+
+  return dataFormatada;
+}
+
+function removerCaracteresNaoNumericos(valor) {
+  return valor ? valor.replace(/\D/g, "") : "";
+}
+
+function formatarCpfOuCnpj(valor, isCpf) {
+  const numeros = removerCaracteresNaoNumericos(valor);
+
+  if (isCpf) {
+    // Garante que tenha 11 dígitos
+    return numeros.padStart(11, "0");
+  } else {
+    // Garante que tenha 14 dígitos
+    return numeros.padStart(14, "0");
+  }
+}
 
 async function obterNovoAccessToken() {
   try {
@@ -58,100 +86,108 @@ async function verificarTokenExpirado() {
 
 async function FormatarDados(detalhesCliente) {
   try {
-    console.log(detalhesCliente);
     if (typeof detalhesCliente !== "object" || detalhesCliente === null) {
       throw new Error("O parâmetro 'detalhesCliente' não é um objeto válido.");
     }
     // Mapear os dados para o formato desejado
-    const hoje = new Date();
-    const dataDeHoje = hoje.toISOString().split("T")[0];
+    const dataAtualFormatada = obterDataFormatada();
+    const cpfFormatado = formatarCpfOuCnpj(ultimoPedidoArmazenado.cpf, true);
+    const cnpjFormatado = formatarCpfOuCnpj(ultimoPedidoArmazenado.cnpj, false);
+
     const enderecoCompleto = `${ultimoPedidoArmazenado.enderecos[0].logradouro}, ${ultimoPedidoArmazenado.enderecos[0].numero}, ${ultimoPedidoArmazenado.enderecos[0].complemento}`;
-    const dadosFormatados = {
-      Driver: {
-        PhoneCountry: "55",
-        PhoneNumber: "21970188673",
-        DefineDriverAfter: 0,
-      },
-      SendToDriver: true,
-      Customer: {
-        DocumentType: ultimoPedidoArmazenado.cpf ? "CPF" : "CNPJ",
-        DocumentNumber:
-          ultimoPedidoArmazenado.cpf || ultimoPedidoArmazenado.cnpj,
-      },
-      OrderType: 1,
-      OrderID: `ID${ultimoPedidoArmazenado.ultimoPedido.id}`,
-      OrderNumber: ultimoPedidoArmazenado.ultimoPedido.numero.toString(),
-      OrderDescription: "CT-e",
-      OrderDescriptionDocuments: "NF-e",
-      SourceAddress: {
-        Address: "Av. Cesário de Melo, 4654",
-        AdditionalInformation: "Campo Grande",
-        Address2: "Campo Grande",
-        ZipCode: "23055-001",
-        City: "Rio de Janeiro",
-        State: "RJ",
-        Country: "Brasil",
-        Name: "Nome do cliente.",
-        Responsibility: "ELEAR Distribuidora",
-        PhoneCountry: "+55",
-        PhoneNumber: "2134354735",
-        Email: "eleardistribuidora@gmail.com",
-        DocumentType: "CNPJ",
-        DocumentNumber: "26161366000217",
-        PhoneCountrySms: "+55",
-        PhoneNumberSms: "2134354735",
-      },
-      DestinationAddress: {
-        Address: enderecoCompleto,
-        AdditionalInformation: ultimoPedidoArmazenado.enderecos[0].complemento,
-        Address2: ultimoPedidoArmazenado.enderecos[0].bairro,
-        ZipCode: ultimoPedidoArmazenado.enderecos[0].cep,
-        City: ultimoPedidoArmazenado.enderecos[0].cidade.nome,
-        State: "RJ",
-        Country: "Brasil",
-        Name: ultimoPedidoArmazenado.razao_social,
-        Responsibility: ultimoPedidoArmazenado.razao_social,
-        PhoneCountry: "+55",
-        PhoneNumber: ultimoPedidoArmazenado.telefone,
-        Email: ultimoPedidoArmazenado.telefone,
-        DocumentType: ultimoPedidoArmazenado.cpf ? "CPF" : "CNPJ",
-        DocumentNumber:
-          ultimoPedidoArmazenado.cpf || ultimoPedidoArmazenado.cnpj,
-        PhoneCountrySms: "+55",
-        PhoneNumberSms: ultimoPedidoArmazenado.telefone,
-      },
-      Documents: [
-        {
-          DocumentID: `ID${ultimoPedidoArmazenado.ultimoPedido.id}`,
-          DocumentNumber: ultimoPedidoArmazenado.ultimoPedido.numero.toString(),
-          DocumentDescription: "NF-e",
-          Volumes: [
-            {
-              VolumeID: `ID${ultimoPedidoArmazenado.ultimoPedido.id}`,
-              Count: 10,
-              Unity: "PCT",
-              Description: "Documento xxxx",
-              BarCode: "99999999999999999999",
-              Read: 9,
-            },
-          ],
+    const dadosFormatados = [
+      {
+        Driver: {
+          PhoneCountry: "99",
+          PhoneNumber: "99999999999",
+          DefineDriverAfter: 1,
         },
-      ],
-      Observation: "Observação da Entrega para liberação.",
-      DepartureDate: dataDeHoje,
-      DeliveryDate: dataDeHoje,
-      DeliveryStartTime: "23:59",
-      DeliveryEndTime: "23:59",
-      CollectDate: dataDeHoje,
-      CollectStartTime: "23:59",
-      CollectEndTime: "23:59",
-      Sequence: 2,
-      Volume: 10,
-      Weight: 10,
-      LoadSeparation_RouteName: "Carga Exemplo",
-    };
+        SendToDriver: true,
+        Customer: {
+          DocumentType: ultimoPedidoArmazenado.cpf ? "CPF" : "CNPJ",
+          DocumentNumber: ultimoPedidoArmazenado.cpf
+            ? cpfFormatado
+            : cnpjFormatado,
+        },
+        OrderType: 1,
+        OrderID: `ID${ultimoPedidoArmazenado.ultimoPedido.id}`,
+        OrderNumber: ultimoPedidoArmazenado.ultimoPedido.numero.toString(),
+        OrderDescription: "CT-e",
+        OrderDescriptionDocuments: "NF-e",
+        SourceAddress: {
+          Address: "Av. Cesário de Melo, 4654",
+          AdditionalInformation: "Campo Grande",
+          Address2: "Campo Grande",
+          ZipCode: "23055001",
+          City: "Rio de Janeiro",
+          State: "RJ",
+          Country: "Brasil",
+          Name: ultimoPedidoArmazenado.razao_social,
+          Responsibility: "ELEAR Distribuidora",
+          PhoneCountry: "+55",
+          PhoneNumber: "2134354735",
+          Email: "eleardistribuidora@gmail.com",
+          DocumentType: "CNPJ",
+          DocumentNumber: "26161366000217",
+          PhoneCountrySms: "+55",
+          PhoneNumberSms: "2134354735",
+        },
+        DestinationAddress: {
+          Address: enderecoCompleto,
+          AdditionalInformation:
+            ultimoPedidoArmazenado.enderecos[0].complemento,
+          Address2: ultimoPedidoArmazenado.enderecos[0].bairro,
+          ZipCode: ultimoPedidoArmazenado.enderecos[0].cep,
+          City: ultimoPedidoArmazenado.enderecos[0].cidade.nome,
+          State: "RJ",
+          Country: "Brasil",
+          Name: ultimoPedidoArmazenado.razao_social,
+          Responsibility: ultimoPedidoArmazenado.razao_social,
+          PhoneCountry: "+55",
+          PhoneNumber: ultimoPedidoArmazenado.telefone,
+          Email: ultimoPedidoArmazenado.telefone,
+          DocumentType: ultimoPedidoArmazenado.cpf ? "CPF" : "CNPJ",
+          DocumentNumber: ultimoPedidoArmazenado.cpf
+            ? cpfFormatado
+            : cnpjFormatado,
+          PhoneCountrySms: "+55",
+          PhoneNumberSms: ultimoPedidoArmazenado.telefone,
+        },
+        Documents: [
+          {
+            DocumentID: `ID${ultimoPedidoArmazenado.ultimoPedido.id}`,
+            DocumentNumber:
+              ultimoPedidoArmazenado.ultimoPedido.numero.toString(),
+            DocumentDescription: "NF-e",
+            Volumes: [
+              {
+                VolumeID: `ID${ultimoPedidoArmazenado.ultimoPedido.id}`,
+                Count: 10,
+                Unity: "PCT",
+                Description: "Documento xxxx",
+                BarCode: "99999999999999999999",
+                Read: 9,
+              },
+            ],
+          },
+        ],
+        Observation: "Observação da Entrega para liberação.",
+        DepartureDate: dataAtualFormatada,
+        DeliveryDate: dataAtualFormatada,
+        DeliveryStartTime: "23:59",
+        DeliveryEndTime: "23:59",
+        CollectDate: dataAtualFormatada,
+        CollectStartTime: "23:59",
+        CollectEndTime: "23:59",
+        Sequence: 1,
+        Volume: 1,
+        Weight: 1,
+        LoadSeparation_RouteName: "Carga Exemplo",
+      },
+    ];
 
     // Enviar os dados formatados
+    console.log(JSON.stringify(dadosFormatados));
     console.log("Enviando dados formatados para a funcao: ");
     await postTudoEntrege(dadosFormatados);
   } catch (error) {
@@ -160,22 +196,25 @@ async function FormatarDados(detalhesCliente) {
 }
 
 async function postTudoEntrege(dadosFormatados) {
+  // console.log(dadosFormatados);
   try {
+    const AppKey = "d7a5df17-bf59-4e0a-a44e-d086fde3b078";
     const requesterKey = "5a057ead-9d67-4f73-bbce-41f29f2bc254";
     const response = await axios.post(
       "https://api.tudoentregue.com.br/v1/orders",
-      dadosFormatados,
+      JSON.stringify(dadosFormatados),
       {
         headers: {
           "Content-Type": "application/json",
-          "RequesterKey": requesterKey,
+          AppKey: AppKey,
+          RequesterKey: requesterKey,
         },
       }
     );
 
     console.log("Resposta da API TudoEntregue:", response.data);
   } catch (error) {
-    console.error("Erro ao enviar dados para TudoEntregue:", error.message);
+    console.error("Erro ao enviar dados para TudoEntregue:", error.Details);
     throw error;
   }
 }
@@ -193,7 +232,7 @@ async function fazerRequisicoes() {
 
     // Fazer a primeira requisição para o servidor inicial
     const respostaServidor1 = await axios.get(
-      `https://api.tagplus.com.br/pedidos?status=B&data_criacao=${dataDeHoje}`,
+      `https://api.tagplus.com.br/pedidos?status=B&data_criacao=2023-12-27`,
       {
         headers: {
           Authorization: `Bearer ${access_token}`,
