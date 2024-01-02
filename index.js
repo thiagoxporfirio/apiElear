@@ -95,6 +95,7 @@ async function FormatarDados(detalhesCliente) {
     const cnpjFormatado = formatarCpfOuCnpj(ultimoPedidoArmazenado.cnpj, false);
 
     const enderecoCompleto = `${ultimoPedidoArmazenado.enderecos[0].logradouro}, ${ultimoPedidoArmazenado.enderecos[0].numero}, ${ultimoPedidoArmazenado.enderecos[0].complemento}`;
+
     const dadosFormatados = [
       {
         Driver: {
@@ -104,10 +105,8 @@ async function FormatarDados(detalhesCliente) {
         },
         SendToDriver: true,
         Customer: {
-          DocumentType: ultimoPedidoArmazenado.cpf ? "CPF" : "CNPJ",
-          DocumentNumber: ultimoPedidoArmazenado.cpf
-            ? cpfFormatado
-            : cnpjFormatado,
+          DocumentType: "CNPJ",
+          DocumentNumber: "26161366000136",
         },
         OrderType: 1,
         OrderID: `ID${ultimoPedidoArmazenado.ultimoPedido.id}`,
@@ -142,10 +141,10 @@ async function FormatarDados(detalhesCliente) {
           State: "RJ",
           Country: "Brasil",
           Name: ultimoPedidoArmazenado.razao_social,
-          Responsibility: ultimoPedidoArmazenado.razao_social,
+          Responsibility: "ELEAR Distribuidora",
           PhoneCountry: "+55",
           PhoneNumber: ultimoPedidoArmazenado.telefone,
-          Email: ultimoPedidoArmazenado.telefone,
+          Email: ultimoPedidoArmazenado.email,
           DocumentType: ultimoPedidoArmazenado.cpf ? "CPF" : "CNPJ",
           DocumentNumber: ultimoPedidoArmazenado.cpf
             ? cpfFormatado
@@ -174,8 +173,8 @@ async function FormatarDados(detalhesCliente) {
         Observation: "Observação da Entrega para liberação.",
         DepartureDate: dataAtualFormatada,
         DeliveryDate: dataAtualFormatada,
-        DeliveryStartTime: "23:59",
-        DeliveryEndTime: "23:59",
+        DeliveryStartTime: "08:30",
+        DeliveryEndTime: "18:00",
         CollectDate: dataAtualFormatada,
         CollectStartTime: "23:59",
         CollectEndTime: "23:59",
@@ -214,7 +213,7 @@ async function postTudoEntrege(dadosFormatados) {
 
     console.log("Resposta da API TudoEntregue:", response.data);
   } catch (error) {
-    console.error("Erro ao enviar dados para TudoEntregue:", error.Details);
+    console.error("Erro ao enviar dados para TudoEntregue:", error.message);
     throw error;
   }
 }
@@ -232,7 +231,7 @@ async function fazerRequisicoes() {
 
     // Fazer a primeira requisição para o servidor inicial
     const respostaServidor1 = await axios.get(
-      `https://api.tagplus.com.br/pedidos?status=B&data_criacao=2023-12-27`,
+      `https://api.tagplus.com.br/pedidos?status=B&data_criacao=${dataDeHoje}`,
       {
         headers: {
           Authorization: `Bearer ${access_token}`,
