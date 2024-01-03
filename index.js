@@ -1,8 +1,8 @@
 const axios = require("axios");
 const cron = require("node-cron");
 
-let access_token = "r9ghTf24zs4l8zZOC4pDaEbQERMym0hR";
-let refresh_token = "6W97FMvwF54seBU85U7D3JoXPoQ5sslc";
+let access_token = "Xl0o9g0HE2tXlEvzO2SBIK9C7ZGPiro4";
+let refresh_token = "dKMI0V2OJqKUFaIPIE9JPkwNRfXJ1GyG";
 let ultimoPedidoArmazenado = null;
 let tokenExpiryTime = null;
 
@@ -34,6 +34,26 @@ function formatarCpfOuCnpj(valor, isCpf) {
   } else {
     // Garante que tenha 14 dígitos
     return numeros.padStart(14, "0");
+  }
+}
+
+async function obterDetalhesPedidoPorID(pedidoID) {
+  try {
+    const response = await axios.get(
+      `https://api.tagplus.com.br/pedidos/${pedidoID}`,
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          "X-Api-Version": "2.0",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(`Erro ao obter detalhes do pedido ${pedidoID}:`, error.message);
+    throw error;
   }
 }
 
@@ -94,6 +114,19 @@ async function FormatarDados(detalhesCliente) {
     const cpfFormatado = formatarCpfOuCnpj(ultimoPedidoArmazenado.cpf, true);
     const cnpjFormatado = formatarCpfOuCnpj(ultimoPedidoArmazenado.cnpj, false);
 
+    const pedidoID = ultimoPedidoArmazenado.ultimoPedido.id;
+    // Chama a função para obter detalhes do pedido
+    const detalhesPedido = await obterDetalhesPedidoPorID(pedidoID);
+
+    const Items = detalhesPedido.itens
+    const qtd = Items[0].qtd;
+    const volume = Items[0].item;
+
+    const Observation = detalhesPedido.observacoes ? detalhesPedido.observacoes.toString() : '';
+
+    //pega estado
+    const End = ultimoPedidoArmazenado.enderecos[0]
+    
     const enderecoCompleto = `${ultimoPedidoArmazenado.enderecos[0].logradouro}, ${ultimoPedidoArmazenado.enderecos[0].numero}, ${ultimoPedidoArmazenado.enderecos[0].complemento}`;
 
     const dadosFormatados = [
@@ -111,8 +144,8 @@ async function FormatarDados(detalhesCliente) {
         OrderType: 1,
         OrderID: `ID${ultimoPedidoArmazenado.ultimoPedido.id}`,
         OrderNumber: ultimoPedidoArmazenado.ultimoPedido.numero.toString(),
-        OrderDescription: "CT-e",
-        OrderDescriptionDocuments: "NF-e",
+        OrderDescription: "Pedido",
+        OrderDescriptionDocuments: "Pedido",
         SourceAddress: {
           Address: "Av. Cesário de Melo, 4654",
           AdditionalInformation: "Campo Grande",
@@ -121,7 +154,7 @@ async function FormatarDados(detalhesCliente) {
           City: "Rio de Janeiro",
           State: "RJ",
           Country: "Brasil",
-          Name: ultimoPedidoArmazenado.razao_social,
+          Name: "ELEAR Distribuidora",
           Responsibility: "ELEAR Distribuidora",
           PhoneCountry: "+55",
           PhoneNumber: "2134354735",
@@ -138,7 +171,7 @@ async function FormatarDados(detalhesCliente) {
           Address2: ultimoPedidoArmazenado.enderecos[0].bairro,
           ZipCode: ultimoPedidoArmazenado.enderecos[0].cep,
           City: ultimoPedidoArmazenado.enderecos[0].cidade.nome,
-          State: "RJ",
+          State: End.cidade.estado.sigla,
           Country: "Brasil",
           Name: ultimoPedidoArmazenado.razao_social,
           Responsibility: "ELEAR Distribuidora",
@@ -157,11 +190,11 @@ async function FormatarDados(detalhesCliente) {
             DocumentID: `ID${ultimoPedidoArmazenado.ultimoPedido.id}`,
             DocumentNumber:
               ultimoPedidoArmazenado.ultimoPedido.numero.toString(),
-            DocumentDescription: "NF-e",
+            DocumentDescription: "Outro",
             Volumes: [
               {
                 VolumeID: `ID${ultimoPedidoArmazenado.ultimoPedido.id}`,
-                Count: 10,
+                Count: qtd,
                 Unity: "PCT",
                 Description: "Documento xxxx",
                 BarCode: "99999999999999999999",
@@ -170,23 +203,23 @@ async function FormatarDados(detalhesCliente) {
             ],
           },
         ],
-        Observation: "Observação da Entrega para liberação.",
-        DepartureDate: dataAtualFormatada,
-        DeliveryDate: dataAtualFormatada,
+        Observation: Observation,
+        DepartureDate: "",
+        DeliveryDate: "",
         DeliveryStartTime: "08:30",
         DeliveryEndTime: "18:00",
-        CollectDate: dataAtualFormatada,
+        CollectDate: "",
         CollectStartTime: "23:59",
         CollectEndTime: "23:59",
         Sequence: 1,
-        Volume: 1,
+        Volume: volume,
         Weight: 1,
         LoadSeparation_RouteName: "Carga Exemplo",
       },
     ];
 
     // Enviar os dados formatados
-    console.log(JSON.stringify(dadosFormatados));
+    // console.log(JSON.stringify(dadosFormatados));
     console.log("Enviando dados formatados para a funcao: ");
     await postTudoEntrege(dadosFormatados);
   } catch (error) {
@@ -195,7 +228,6 @@ async function FormatarDados(detalhesCliente) {
 }
 
 async function postTudoEntrege(dadosFormatados) {
-  // console.log(dadosFormatados);
   try {
     const AppKey = "d7a5df17-bf59-4e0a-a44e-d086fde3b078";
     const requesterKey = "5a057ead-9d67-4f73-bbce-41f29f2bc254";
@@ -231,12 +263,13 @@ async function fazerRequisicoes() {
 
     // Fazer a primeira requisição para o servidor inicial
     const respostaServidor1 = await axios.get(
-      `https://api.tagplus.com.br/pedidos?status=B&data_criacao=${dataDeHoje}`,
+      `https://api.tagplus.com.br/pedidos?status=B&since=${dataDeHoje} 00:00:00&until=${dataDeHoje} 23:59:59`,
       {
         headers: {
           Authorization: `Bearer ${access_token}`,
           "X-Api-Version": "2.0",
           "Content-Type": "application/json",
+          "X-Data-Filter": "data_criacao"
         },
       }
     );
@@ -287,4 +320,4 @@ async function fazerRequisicoes() {
   }
 }
 
-cron.schedule("*/5 * * * * *", fazerRequisicoes);
+cron.schedule("*/15 * * * * *", fazerRequisicoes);
