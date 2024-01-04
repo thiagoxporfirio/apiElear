@@ -1,8 +1,9 @@
 const axios = require("axios");
 const cron = require("node-cron");
+const { firebase } = require("./firebase");
 
-let access_token = "Xl0o9g0HE2tXlEvzO2SBIK9C7ZGPiro4";
-let refresh_token = "dKMI0V2OJqKUFaIPIE9JPkwNRfXJ1GyG";
+const database = firebase.database();
+
 let ultimoPedidoArmazenado = null;
 let tokenExpiryTime = null;
 
@@ -39,11 +40,12 @@ function formatarCpfOuCnpj(valor, isCpf) {
 
 async function obterDetalhesPedidoPorID(pedidoID) {
   try {
+    const token = await obterToken()
     const response = await axios.get(
       `https://api.tagplus.com.br/pedidos/${pedidoID}`,
       {
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authorization: `Bearer ${token.access_token}`,
           "X-Api-Version": "2.0",
           "Content-Type": "application/json",
         },
@@ -52,29 +54,67 @@ async function obterDetalhesPedidoPorID(pedidoID) {
 
     return response.data;
   } catch (error) {
-    console.error(`Erro ao obter detalhes do pedido ${pedidoID}:`, error.message);
+    console.error(
+      `Erro ao obter detalhes do pedido ${pedidoID}:`,
+      error.message
+    );
+    throw error;
+  }
+}
+
+async function obterToken() {
+  const tokenRef = database.ref("/token");
+
+  try {
+    const snapshot = await tokenRef.once("value");
+    const data = snapshot.val();
+
+    if (!data) {
+      console.error("Dados não encontrados em", tokenRef.toString());
+      return null;
+    }
+
+    const token = {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+    };
+
+    // Atualizar tokenExpiryTime
+    tokenExpiryTime = new Date().getTime() + 86400 * 1000;
+
+    // console.log("Tokens obtidos:", token);
+    return token;
+  } catch (error) {
+    console.error("Erro ao ler dados:", error);
     throw error;
   }
 }
 
 async function obterNovoAccessToken() {
-  try {
+  try {  
     const response = await axios.post(
       "https://api.tagplus.com.br/oauth2/token",
       {
         grant_type: "refresh_token",
-        refresh_token: refresh_token,
+        refresh_token: token.refresh_token,
         client_id: client_id,
         client_secret: client_secret,
       }
     );
 
-    access_token = response.data.access_token;
-    refresh_token = response.data.refresh_token;
+    const novoAccessToken = response.data.access_token;
+    const novoRefreshToken = response.data.refresh_token;
     tokenExpiryTime = new Date().getTime() + response.data.expires_in * 1000;
 
-    console.log("Novo Access Token obtido:", access_token);
-    console.log("Novo Refresh Token obtido:", refresh_token);
+    console.log("Novo Access Token obtido:", novoAccessToken);
+    console.log("Novo Refresh Token obtido:", novoRefreshToken);
+
+    // Atualizar os tokens no banco de dados Firebase
+    const tokenRef = firebase.database().ref("/token");
+    await tokenRef.update({
+      access_token: novoAccessToken,
+      refresh_token: novoRefreshToken,
+    });
   } catch (error) {
     console.error("Erro ao obter novo Access Token:", error.message);
   }
@@ -82,11 +122,12 @@ async function obterNovoAccessToken() {
 
 async function obterDetalhesCliente(clienteId) {
   try {
+    const token = await obterToken()
     const respostaDetalhesCliente = await axios.get(
       `https://api.tagplus.com.br/clientes/${clienteId}`,
       {
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authorization: `Bearer ${token.access_token}`,
           "X-Api-Version": "2.0",
           "Content-Type": "application/json",
         },
@@ -101,7 +142,12 @@ async function obterDetalhesCliente(clienteId) {
 }
 
 async function verificarTokenExpirado() {
-  return tokenExpiryTime && tokenExpiryTime < new Date().getTime();
+  return (
+    token &&
+    token.access_token &&
+    tokenExpiryTime &&
+    tokenExpiryTime < new Date().getTime()
+  );
 }
 
 async function FormatarDados(detalhesCliente) {
@@ -118,15 +164,17 @@ async function FormatarDados(detalhesCliente) {
     // Chama a função para obter detalhes do pedido
     const detalhesPedido = await obterDetalhesPedidoPorID(pedidoID);
 
-    const Items = detalhesPedido.itens
+    const Items = detalhesPedido.itens;
     const qtd = Items[0].qtd;
     const volume = Items[0].item;
 
-    const Observation = detalhesPedido.observacoes ? detalhesPedido.observacoes.toString() : '';
+    const Observation = detalhesPedido.observacoes
+      ? detalhesPedido.observacoes.toString()
+      : "";
 
     //pega estado
-    const End = ultimoPedidoArmazenado.enderecos[0]
-    
+    const End = ultimoPedidoArmazenado.enderecos[0];
+
     const enderecoCompleto = `${ultimoPedidoArmazenado.enderecos[0].logradouro}, ${ultimoPedidoArmazenado.enderecos[0].numero}, ${ultimoPedidoArmazenado.enderecos[0].complemento}`;
 
     const dadosFormatados = [
@@ -253,10 +301,7 @@ async function postTudoEntrege(dadosFormatados) {
 async function fazerRequisicoes() {
   try {
     // Verificar se o token ainda é válido
-    if (await verificarTokenExpirado()) {
-      await obterNovoAccessToken();
-    }
-
+    const token = await obterToken()
     const hoje = new Date();
     // hoje.setDate(hoje.getDate() - 1); DATA ANTERIROR
     const dataDeHoje = hoje.toISOString().split("T")[0];
@@ -266,10 +311,10 @@ async function fazerRequisicoes() {
       `https://api.tagplus.com.br/pedidos?status=B&since=${dataDeHoje} 00:00:00&until=${dataDeHoje} 23:59:59`,
       {
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authorization: `Bearer ${token.access_token}`,
           "X-Api-Version": "2.0",
           "Content-Type": "application/json",
-          "X-Data-Filter": "data_criacao"
+          "X-Data-Filter": "data_criacao",
         },
       }
     );
@@ -314,10 +359,11 @@ async function fazerRequisicoes() {
   } catch (erro) {
     // Se o erro estiver relacionado à autenticação, tente obter um novo token e refaça a requisição
     if (erro.response && erro.response.status === 401) {
+      verificarTokenExpirado()
       console.log("Erro 401: Authentication de token", erro);
       await obterNovoAccessToken();
     }
   }
 }
 
-cron.schedule("*/15 * * * * *", fazerRequisicoes);
+cron.schedule("*/5 * * * * *", fazerRequisicoes);
