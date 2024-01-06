@@ -92,6 +92,7 @@ async function obterToken() {
 
 async function obterNovoAccessToken() {
   try {  
+    const token = await obterToken()
     const response = await axios.post(
       "https://api.tagplus.com.br/oauth2/token",
       {
@@ -351,7 +352,7 @@ async function fazerRequisicoes() {
         await FormatarDados(detalhesCliente);
       } else {
         console.log(
-          "Retorna o ultimo item, se for o mesmo: ",
+          `Retorna o ultimo item, se for o mesmo(data: ${dataDeHoje}): `,
           ultimoPedidoAtual
         );
       }
@@ -359,11 +360,10 @@ async function fazerRequisicoes() {
   } catch (erro) {
     // Se o erro estiver relacionado à autenticação, tente obter um novo token e refaça a requisição
     if (erro.response && erro.response.status === 401) {
-      verificarTokenExpirado()
       console.log("Erro 401: Authentication de token", erro);
       await obterNovoAccessToken();
     }
   }
 }
 
-cron.schedule("*/5 * * * * *", fazerRequisicoes);
+cron.schedule("*/15 * * * * *", fazerRequisicoes);
